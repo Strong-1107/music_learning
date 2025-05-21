@@ -247,38 +247,42 @@ input {
 .note-group {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
-  grid-gap: 0px;
+  grid-gap: 0;
   width: 85%;
   height: 100%;
-  padding: 10px;
+  padding: 0;
+  background: #fff;
+  border: none;
+  box-shadow: none;
+  position: relative;
+  background-image: repeating-linear-gradient(
+    to right,
+    #f7f7f7 0,
+    #f7f7f7 1fr,
+    #fff 1fr,
+    #fff 2fr
+  );
 }
 
 .grid-btn {
-  padding: 10px;
+  padding: 0;
   border: none;
-  border-left: 0.2px solid #c7e9fb;
-  border-top: 0.2px solid #c7e9fb;
   font-size: 16px;
-  color: white;
-  background-color: #ccc;
+  color: #222;
+  background-color: transparent;
+  cursor: pointer;
+  transition: background 0.15s;
+  border-radius: 0;
+  box-shadow: 0 1px 0 0 #b6e0fe, 1px 0 0 0 #b6e0fe;
+  outline: none;
+  z-index: 1;
 }
 
-.evenBtn {
-  background-color: #ffffff;
-}
-
-.oddBtn {
-  background-color: #f5f6fa;
-}
-
-.grid-btn:hover {
-  background-color: #0288d1;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-}
+/* Remove alternating column backgrounds from .grid-btn */
 
 .grid-btn.selected {
-  transform: scale(1.01);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  background: #2563eb;
+  color: #fff;
 }
 
 .connect {
@@ -307,4 +311,30 @@ input {
   justify-content: center;
   align-items: center;
   height: 150px;
+}
+
+.circle-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+}
+.grid-btn.circle {
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  min-height: 40px !important;
+  max-width: 40px !important;
+  max-height: 40px !important;
+  border-radius: 50%;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.three-four-mode .grid-btn.circle {
+  transform: scaleY(1.25);
 }

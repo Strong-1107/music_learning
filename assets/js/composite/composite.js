@@ -7,6 +7,8 @@ let isPlaying = false;
 let currentBeat = 0;
 let synth = null;
 let loop = null;
+let currentTimeSignature = "4/4";
+let numColumns = 32;
 
 // DOM Elements
 const playButton = document.getElementById("play-button");
@@ -107,6 +109,12 @@ function initializeGrid() {
           drawVex();
         }
       });
+    } else {
+      // Bottom row: circle buttons
+      button.classList.add("circle");
+      const wrapper = document.createElement("div");
+      wrapper.className = "circle-wrapper";
+      wrapper.appendChild(button);
     }
 
     gridContainer.appendChild(button);
@@ -185,8 +193,22 @@ tempoSlider.addEventListener("input", (e) => {
   updateTempoTerm(tempo);
 });
 
-timeSignatureSelect.addEventListener("change", () => {
-  initializeGrid(); // Reinitialize grid when time signature changes
+timeSignatureSelect.addEventListener("change", (e) => {
+  currentTimeSignature = e.target.value;
+  // Update beats in SongOptions
+  if (currentTimeSignature === "4/4") {
+    songOptions.beats = 4;
+    numColumns = 32;
+    document.body.classList.remove("three-four-mode");
+  } else if (currentTimeSignature === "3/4") {
+    songOptions.beats = 3;
+    numColumns = 24;
+    document.body.classList.add("three-four-mode");
+  }
+  // Reinitialize grid with new column count
+  initializeGrid();
+  updateBarDividers();
+  drawVex();
 });
 
 // Add change handler for dynamics dropdown
