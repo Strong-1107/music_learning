@@ -111,8 +111,12 @@ function initializeGrid() {
     const columns = currentTimeSignature === "3/4" ? 24 : 32;
     gridContainer.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
 
+    // Calculate grouping per measure based on time signature
+    const groupSize = currentTimeSignature === "3/4" ? 6 : 8;
+    const totalGroups = columns / groupSize;
+
     // Calculate eighths per measure based on time signature
-    const eighthsPerMeasure = currentTimeSignature === "3/4" ? 6 : 8;
+    const eighthsPerMeasure = groupSize;
 
     // Reinitialize noteGroup array with new size
     noteGroup = [];
@@ -126,6 +130,13 @@ function initializeGrid() {
         button.setAttribute("data-id", i);
         let indexColumn = (i - 1) % columns;
         let indexRow = Math.floor((i - 1) / columns);  // Direct row calculation (0 = top)
+
+        // Determine group index (0-based)
+        const groupIndex = Math.floor(indexColumn / groupSize);
+        // If odd-numbered group (1st, 3rd, ...), add odd-group class
+        if (groupIndex % 2 === 0) {
+            button.classList.add("odd-group");
+        }
 
         if (i <= 8 * columns) {
             if (Math.floor((indexColumn) / (columns/2)) % 2) {
@@ -203,37 +214,16 @@ function initializeGrid() {
             }
             if (i > 7 * columns) button.style.marginBottom = "30px";
         } else {
-            button.style.width = "50%";
-            button.style.height = "50%";
-            button.style.marginLeft = "25%";
-            button.style.marginTop = "25%";
-            button.style.borderRadius = "50%";
-            button.style.backgroundColor = "#ccc";
-            button.addEventListener("click", (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const index = button.getAttribute("data-id");
-                let buttonRow = Math.floor((index - 1) / columns);  // Direct row calculation
-
-                button.classList.toggle("selected");
-                if (button.classList.contains("selected")) {
-                    button.style.width = "70%";
-                    button.style.height = "65%";
-                    button.style.marginLeft = "15%";
-                    button.style.marginTop = "15%";
-                    button.style.backgroundColor = "#16a8f0";
-                    button.style.borderLeft = "0px";
-                    button.style.borderTop = "0px";
-                    if (buttonRow == 8) button.style.borderRadius = "20%";
-                } else {
-                    button.style.width = "50%";
-                    button.style.height = "50%";
-                    button.style.marginLeft = "25%";
-                    button.style.backgroundColor = "#ccc";
-                    button.style.borderRadius = "50%";
-                }
-            });
-            gridContainer.appendChild(button);
+            // Wrap circle button in a flexbox container to prevent stretching
+            button.classList.add("circle");
+            const wrapper = document.createElement("div");
+            wrapper.style.display = "flex";
+            wrapper.style.justifyContent = "center";
+            wrapper.style.alignItems = "center";
+            wrapper.style.height = "100%";
+            wrapper.style.width = "100%";
+            wrapper.appendChild(button);
+            gridContainer.appendChild(wrapper);
         }
     }
 }
@@ -809,6 +799,28 @@ function drawVex() {
         let measureNotes = [];
         const startCol = m * eighthsPerMeasure;
         const endCol = Math.min(startCol + eighthsPerMeasure, totalColumns);
+        
+        // Check if measure is empty
+        let isMeasureEmpty = true;
+        for (let i = startCol; i < endCol; i++) {
+            if (noteGroup[i] && noteGroup[i].length > 0) {
+                isMeasureEmpty = false;
+                break;
+            }
+        }
+
+        if (isMeasureEmpty) {
+            // Add appropriate rest based on time signature
+            const restDuration = currentTimeSignature === "3/4" ? "hr" : "wr";  // half rest for 3/4, whole rest for 4/4
+            measureNotes.push(
+                new VF.StaveNote({
+                    clef: "treble",
+                    keys: ["b/4"],
+                    duration: restDuration
+                })
+            );
+        } else {
+            // Process notes in non-empty measure
         for (let i = startCol; i < endCol; ) {
             if (noteGroup[i] && noteGroup[i].length > 0) {
                 const note = noteGroup[i][0];
@@ -836,7 +848,7 @@ function drawVex() {
                 measureNotes.push(staveNote);
                 i += span;
             } else {
-                // Add eighth rest for empty columns
+                    // Add eighth rest for empty columns in non-empty measures
                 measureNotes.push(
                     new VF.StaveNote({
                         clef: "treble",
@@ -845,6 +857,7 @@ function drawVex() {
                     })
                 );
                 i++;
+                }
             }
         }
 
@@ -1637,3 +1650,32 @@ function showDurationMenu(button, buttonRow, buttonColumn) {
         });
     }, 10);
 }
+
+// Update or add the style for grid button borders and odd-group background, without !important so JS can override
+const oddGroupStyle = document.createElement("style");
+oddGroupStyle.textContent = `
+  .grid-btn {
+    border-top: 0.1px solid #d8efff;
+    border-left: 0.1px solid #d8efff;
+    background: #fff;
+    box-sizing: border-box;
+  }
+  .grid-btn.odd-group {
+    background: #f5f5f5;
+  }
+  /* Do NOT set background for selected here; let JS handle it per row */
+`;
+document.head.appendChild(oddGroupStyle);
+
+// Update the style for circle grid buttons to always be a perfect circle using fixed px values
+const circleBtnStyle = document.createElement("style");
+circleBtnStyle.textContent = `
+  .grid-btn.circle {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: block;
+    margin: 0;
+  }
+`;
+document.head.appendChild(circleBtnStyle);
