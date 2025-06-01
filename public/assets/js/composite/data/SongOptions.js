@@ -1,7 +1,16 @@
-import { EventEmitter } from "https://esm.sh/events";
+// import { EventEmitter } from "https://esm.sh/events";
+import { EventEmitter } from "../events/events.js";
 import { nameToScale } from "./ScaleMap.js";
 
 export const MOBILE_BREAKPOINT = 1024;
+
+const Instrument = [
+  "marimba",
+  "piano",
+  "strings",
+  "woodwind",
+  "synth",
+]
 
 export class SongOptions extends EventEmitter {
   constructor() {
@@ -18,10 +27,21 @@ export class SongOptions extends EventEmitter {
     this.scale = "major"; // major
     this.percussionNotes = 2;
     this.rootNote = 48;
+    this.instrumentIndex = 0;
 
     //sounds
-    this.instrument = "marimba";
+    this.instrument = Instrument[this.instrumentIndex];
     this.percussion = "electronic";
+  }
+
+  nextInstrument() {
+    if (this.instrumentIndex == 4) {
+      this.instrumentIndex = 0;
+      this.instrument = Instrument[this.instrumentIndex];
+      return;
+    }
+    this.instrumentIndex ++;
+    this.instrument = Instrument[this.instrumentIndex];
   }
 
   get rootPitch() {
@@ -86,6 +106,10 @@ export class SongOptions extends EventEmitter {
 
   changeInstrument() {
     this.emit("change-instrument");
+  }
+
+  changePercussion() {
+    this.emit("change-percussion");
   }
 
   toJSON() {

@@ -1,11 +1,9 @@
 import { ToneAudioBuffer } from "https://esm.sh/tone";
-
 import { bus } from "./data/EventBus.js";
 import { SongOptions } from "./data/SongOptions.js";
+import { Sound } from './sound/Sound.js';
 import { MidiData } from "./midi/Data.js";
 import { History } from "./history/History.js";
-
-import { Sound } from "./sound/Sound.js";
 
 const buffer = new ToneAudioBuffer();
 
@@ -44,6 +42,8 @@ for (let i = 0; i < numColumns; i++) {
   noteGroup.push([]);
 }
 
+
+
 // Note duration types and mapping to VexFlow
 const NOTE_DURATIONS = {
   EIGHTH: '8',
@@ -63,6 +63,50 @@ const DURATION_LABELS = {
   'h': '1/2',
   'w': '1'
 };
+
+const INSTRUMENT_IMAGES = [
+  "tonal-marimba.svg",
+  "tonal-piano.svg",
+  "tonal-synth.svg",
+  "tonal-violin.svg",
+  "tonal-woodwind.svg"
+]
+
+var CURRENT_INSTRUMENT_IMAGE = 0;
+
+function changeInstrument() {
+  songOptions.nextInstrument();
+  songOptions.changeInstrument();
+  const instrumentImg = document.getElementById("instrument-toggle-button-image");
+  if(CURRENT_INSTRUMENT_IMAGE == 4) {
+    CURRENT_INSTRUMENT_IMAGE = 0;
+    instrumentImg.setAttribute("src", `/assets/image/${INSTRUMENT_IMAGES[CURRENT_INSTRUMENT_IMAGE]}`);
+    return;
+  }
+  CURRENT_INSTRUMENT_IMAGE ++;
+  instrumentImg.setAttribute("src", `/assets/image/${INSTRUMENT_IMAGES[CURRENT_INSTRUMENT_IMAGE]}`);
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const changeInstrumentButton = document.getElementById("instrument-toggle-button");
+  changeInstrumentButton.addEventListener("click", () => {
+    console.log("Changed >>>>>>>>>");
+    changeInstrument();
+  })
+})
+
+function onSongChanged() {
+  bottom.songChanged = true;
+  if (
+    midiData.instrument.timeline._length +
+    midiData.percussion.timeline._length <
+    1
+  ) {
+    bottom.disableSaveButton(true);
+  } else {
+    bottom.disableSaveButton(false);
+  }
+}
 
 // Helper to check if a note can be placed (no overlap)
 function canPlaceNote(column, duration) {
@@ -90,8 +134,8 @@ const EasePair = ["qr", "q", "q", "q", "q", "q", "q", "q"];
 // Initialize grid container
 const gridContainer = document.getElementById("noteGroup");
 if (gridContainer) {
-    gridContainer.style.gridTemplateColumns = `repeat(${numColumns}, 1fr)`;
-    initializeGrid(); // Call initializeGrid after setting up the container
+  gridContainer.style.gridTemplateColumns = `repeat(${numColumns}, 1fr)`;
+  initializeGrid(); // Call initializeGrid after setting up the container
 }
 
 // Add drag selection variables
@@ -102,130 +146,132 @@ let selectionStarted = false;
 let initialButtonState = false; // true if first button was selected, false if unselected
 
 function initializeGrid() {
-    const gridContainer = document.getElementById("noteGroup");
-    if (!gridContainer) return;
-    
-    gridContainer.innerHTML = ""; // Clear existing grid
-    
-    // Set columns based on time signature
-    const columns = currentTimeSignature === "3/4" ? 24 : 32;
-    gridContainer.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
+  const gridContainer = document.getElementById("noteGroup");
+  if (!gridContainer) return;
 
-    // Calculate grouping per measure based on time signature
-    const groupSize = currentTimeSignature === "3/4" ? 6 : 8;
-    const totalGroups = columns / groupSize;
+  gridContainer.innerHTML = ""; // Clear existing grid
 
-    // Calculate eighths per measure based on time signature
-    const eighthsPerMeasure = groupSize;
+  // Set columns based on time signature
+  const columns = currentTimeSignature === "3/4" ? 24 : 32;
+  gridContainer.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
 
-    // Reinitialize noteGroup array with new size
-    noteGroup = [];
-    for (let i = 0; i < columns; i++) {
-        noteGroup.push([]);
+  // Calculate grouping per measure based on time signature
+  const groupSize = currentTimeSignature === "3/4" ? 6 : 8;
+  const totalGroups = columns / groupSize;
+
+  // Calculate eighths per measure based on time signature
+  const eighthsPerMeasure = groupSize;
+
+  // Reinitialize noteGroup array with new size
+  noteGroup = [];
+  for (let i = 0; i < columns; i++) {
+    noteGroup.push([]);
+  }
+
+  for (let i = 1; i <= 10 * columns; i++) {
+    const button = document.createElement("button");
+    button.classList.add("grid-btn");
+    button.setAttribute("data-id", i);
+    let indexColumn = (i - 1) % columns;
+    let indexRow = Math.floor((i - 1) / columns);  // Direct row calculation (0 = top)
+
+    // Determine group index (0-based)
+    const groupIndex = Math.floor(indexColumn / groupSize);
+    // If odd-numbered group (1st, 3rd, ...), add odd-group class
+    if (groupIndex % 2 === 0) {
+      button.classList.add("odd-group");
     }
 
-    for (let i = 1; i <= 10 * columns; i++) {
-        const button = document.createElement("button");
-        button.classList.add("grid-btn");
-        button.setAttribute("data-id", i);
-        let indexColumn = (i - 1) % columns;
-        let indexRow = Math.floor((i - 1) / columns);  // Direct row calculation (0 = top)
+    if (i <= 8 * columns) {
+      if (Math.floor((indexColumn) / (columns / 2)) % 2) {
+        button.classList.add("oddBtn");
+      } else {
+        button.classList.add("evenBtn");
+      }
 
-        // Determine group index (0-based)
-        const groupIndex = Math.floor(indexColumn / groupSize);
-        // If odd-numbered group (1st, 3rd, ...), add odd-group class
-        if (groupIndex % 2 === 0) {
-            button.classList.add("odd-group");
-        }
+      // Add bar dividers based on time signature
+      if (indexColumn % eighthsPerMeasure === 0 && indexColumn !== 0) {
+        button.classList.add("bar-divider");
+      }
 
-        if (i <= 8 * columns) {
-            if (Math.floor((indexColumn) / (columns/2)) % 2) {
-                button.classList.add("oddBtn");
-            } else {
-                button.classList.add("evenBtn");
-            }
+      // Add last-bar-divider to the last column
+      if (indexColumn === columns - 1) {
+        button.classList.add("last-bar-divider");
+      }
 
-            // Add bar dividers based on time signature
-            if (indexColumn % eighthsPerMeasure === 0 && indexColumn !== 0) {
-                button.classList.add("bar-divider");
-            }
-            
-            // Add last-bar-divider to the last column
-            if (indexColumn === columns - 1) {
-                button.classList.add("last-bar-divider");
-            }
+      if (indexColumn % 2 && indexColumn !== 0) {
+        button.classList.add("mainDivider");
+      }
 
-            if (indexColumn % 2 && indexColumn !== 0) {
-                button.classList.add("mainDivider");
-            }
+      // Add event listeners
+      button.addEventListener("mousedown", (e) => {
+        e.preventDefault(); // Prevent text selection while dragging
+        e.stopPropagation(); // Stop event propagation
 
-            // Add event listeners
-            button.addEventListener("mousedown", (e) => {
-                e.preventDefault(); // Prevent text selection while dragging
-                e.stopPropagation(); // Stop event propagation
-                
-                isDragging = true;
-                selectionStarted = true;
-                lastSelectedButton = button;
+        isDragging = true;
+        selectionStarted = true;
+        lastSelectedButton = button;
 
-                // Store initial state - if the button was selected or not
-                initialButtonState = !button.classList.contains("selected");
+        // Store initial state - if the button was selected or not
+        initialButtonState = !button.classList.contains("selected");
 
-                // Toggle the first button
-                const buttons = document.elementsFromPoint(e.clientX, e.clientY);
-                const targetButton = buttons.find((el) =>
-                    el.classList.contains("grid-btn")
-                );
-                if (targetButton && targetButton.classList.contains("selected")) {
-                    const rect = targetButton.getBoundingClientRect();
-                    if (
-                        e.clientX >= rect.right - rect.width / 5 ||
-                        e.clientX <= rect.left + rect.width / 5
-                    ) {
-                        isResizing = true;
-                        selectionStarted = true;
-                        initialButtonState = true;
-                    } else {
-                        toggleButton(button, initialButtonState);
-                    }
-                } else {
-                    toggleButton(button, initialButtonState);
-                }
-            });
-
-            // Add mouseup event listener
-            button.addEventListener("mouseup", (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                isDragging = false;
-                isResizing = false;
-                selectionStarted = false;
-            });
-
-            gridContainer.appendChild(button);
-
-            //Give note to first button
-            if (i % columns == 1) {
-                const noteLabel = document.createElement("div");
-                noteLabel.style.marginRight = "5px";
-                noteLabel.style.display = "inline-block";
-                noteLabel.style.verticalAlign = "center";
-                noteLabel.textContent = buttonNote[indexRow];  // Use direct index for note label
-            }
-            if (i > 7 * columns) button.style.marginBottom = "30px";
+        // Toggle the first button
+        const buttons = document.elementsFromPoint(e.clientX, e.clientY);
+        const targetButton = buttons.find((el) =>
+          el.classList.contains("grid-btn")
+        );
+        if (targetButton && targetButton.classList.contains("selected")) {
+          const rect = targetButton.getBoundingClientRect();
+          if (
+            e.clientX >= rect.right - rect.width / 5 ||
+            e.clientX <= rect.left + rect.width / 5
+          ) {
+            isResizing = true;
+            selectionStarted = true;
+            initialButtonState = true;
+          } else {
+            // toggleButton(button, initialButtonState);
+            toggleInsertSound(button, initialButtonState)
+          }
         } else {
-            // Wrap circle button in a flexbox container to prevent stretching
-            button.classList.add("circle");
-            const wrapper = document.createElement("div");
-            wrapper.style.display = "flex";
-            wrapper.style.justifyContent = "center";
-            wrapper.style.alignItems = "center";
-            wrapper.style.height = "100%";
-            wrapper.style.width = "100%";
-            wrapper.appendChild(button);
-            gridContainer.appendChild(wrapper);
+          // toggleButton(button, initialButtonState);
+          toggleInsertSound(button, initialButtonState)
         }
+      });
+
+      // Add mouseup event listener
+      button.addEventListener("mouseup", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        isDragging = false;
+        isResizing = false;
+        selectionStarted = false;
+      });
+
+      gridContainer.appendChild(button);
+
+      //Give note to first button
+      if (i % columns == 1) {
+        const noteLabel = document.createElement("div");
+        noteLabel.style.marginRight = "5px";
+        noteLabel.style.display = "inline-block";
+        noteLabel.style.verticalAlign = "center";
+        noteLabel.textContent = buttonNote[indexRow];  // Use direct index for note label
+      }
+      if (i > 7 * columns) button.style.marginBottom = "30px";
+    } else {
+      // Wrap circle button in a flexbox container to prevent stretching
+      button.classList.add("circle");
+      const wrapper = document.createElement("div");
+      wrapper.style.display = "flex";
+      wrapper.style.justifyContent = "center";
+      wrapper.style.alignItems = "center";
+      wrapper.style.height = "100%";
+      wrapper.style.width = "100%";
+      wrapper.appendChild(button);
+      gridContainer.appendChild(wrapper);
     }
+  }
 }
 
 // Italian tempo terms mapping
@@ -247,24 +293,39 @@ function getTempoTerm(bpm) {
   return "Allegro";
 }
 
+function changeTimeSignature() {
+  console.log("asofjaghiahdslgj");
+
+  if (songOptions.beats === 4) {
+    songOptions.beats = 3;
+    numColumns = 24;
+  } else if (songOptions.beats === 3) {
+    songOptions.beats = 4;
+    numColumns = 32;
+  }
+
+  initializeGrid();
+  updateBarDividers();
+  drawVex();
+};
 // Time signature handling
 const timeSignatureSelect = document.getElementById("time-signature");
 if (timeSignatureSelect) {
-    timeSignatureSelect.addEventListener("change", (e) => {
-        currentTimeSignature = e.target.value;
-        // Update beats in SongOptions
-        if (currentTimeSignature === "4/4") {
-            songOptions.beats = 4;
-            numColumns = 32;
-        } else if (currentTimeSignature === "3/4") {
-            songOptions.beats = 3;
-            numColumns = 24;
-        }
-        // Reinitialize grid with new column count
-        initializeGrid();
-        updateBarDividers();
-        drawVex();
-    });
+  timeSignatureSelect.addEventListener("change", (e) => {
+    currentTimeSignature = e.target.value;
+    // Update beats in SongOptions
+    if (currentTimeSignature === "4/4") {
+      songOptions.beats = 4;
+      numColumns = 32;
+    } else if (currentTimeSignature === "3/4") {
+      songOptions.beats = 3;
+      numColumns = 24;
+    }
+    // Reinitialize grid with new column count
+    initializeGrid();
+    updateBarDividers();
+    drawVex();
+  });
 }
 
 // Tempo Italian label handling
@@ -756,156 +817,156 @@ async function playMusic(startIndex = 0) {
 }
 
 function drawVex() {
-    // Initialize VexFlow
-    const div = document.getElementById("notation");
-    div.innerHTML = "";
+  // Initialize VexFlow
+  const div = document.getElementById("notation");
+  div.innerHTML = "";
 
-    const VF = Vex.Flow;
-    const renderer = new VF.Renderer(div, VF.Renderer.Backends.SVG);
+  const VF = Vex.Flow;
+  const renderer = new VF.Renderer(div, VF.Renderer.Backends.SVG);
 
-    // Get the grid width dynamically
-    const gridContainer = document.getElementById("noteGroup");
-    const gridWidth = gridContainer.offsetWidth || 1280;
-    const beatsPerMeasure = currentTimeSignature === "3/4" ? 3 : 4;
-    const totalMeasures = 4;
-    const eighthsPerMeasure = beatsPerMeasure * 2;
-    const totalColumns = currentTimeSignature === "3/4" ? 24 : 32;
+  // Get the grid width dynamically
+  const gridContainer = document.getElementById("noteGroup");
+  const gridWidth = gridContainer.offsetWidth || 1280;
+  const beatsPerMeasure = currentTimeSignature === "3/4" ? 3 : 4;
+  const totalMeasures = 4;
+  const eighthsPerMeasure = beatsPerMeasure * 2;
+  const totalColumns = currentTimeSignature === "3/4" ? 24 : 32;
 
-    // Width calculations
-    const clefAndTimeWidth = 60;
-    let baseMeasureWidth = (gridWidth - clefAndTimeWidth - 20) / totalMeasures;
-    const measureWidth = baseMeasureWidth * 1.03;
-    const totalNotationWidth = measureWidth * totalMeasures + clefAndTimeWidth + 20;
+  // Width calculations
+  const clefAndTimeWidth = 60;
+  let baseMeasureWidth = (gridWidth - clefAndTimeWidth - 20) / totalMeasures;
+  const measureWidth = baseMeasureWidth * 1.03;
+  const totalNotationWidth = measureWidth * totalMeasures + clefAndTimeWidth + 20;
 
-    renderer.resize(totalNotationWidth, 150);
-    const context = renderer.getContext();
+  renderer.resize(totalNotationWidth, 150);
+  const context = renderer.getContext();
 
-    // Draw clef and time signature
-    let initialStave = new VF.Stave(10, 20, clefAndTimeWidth);
-    initialStave.addClef("treble").addTimeSignature(currentTimeSignature);
-    initialStave.setContext(context).draw();
+  // Draw clef and time signature
+  let initialStave = new VF.Stave(10, 20, clefAndTimeWidth);
+  initialStave.addClef("treble").addTimeSignature(currentTimeSignature);
+  initialStave.setContext(context).draw();
 
-    // Process notes measure by measure
-    let x = clefAndTimeWidth + 10;
-    for (let m = 0; m < totalMeasures; m++) {
-        // Create stave for this measure
-        let stave = new VF.Stave(x, 20, measureWidth);
-        if (m === 0) {
-            stave.setBegBarType(VF.Barline.type.NONE);
-        }
-        stave.setContext(context).draw();
-
-        // Get notes for this measure
-        let measureNotes = [];
-        const startCol = m * eighthsPerMeasure;
-        const endCol = Math.min(startCol + eighthsPerMeasure, totalColumns);
-        
-        // Check if measure is empty
-        let isMeasureEmpty = true;
-        for (let i = startCol; i < endCol; i++) {
-            if (noteGroup[i] && noteGroup[i].length > 0) {
-                isMeasureEmpty = false;
-                break;
-            }
-        }
-
-        if (isMeasureEmpty) {
-            // Add appropriate rest based on time signature
-            const restDuration = currentTimeSignature === "3/4" ? "hr" : "wr";  // half rest for 3/4, whole rest for 4/4
-            measureNotes.push(
-                new VF.StaveNote({
-                    clef: "treble",
-                    keys: ["b/4"],
-                    duration: restDuration
-                })
-            );
-        } else {
-            // Process notes in non-empty measure
-        for (let i = startCol; i < endCol; ) {
-            if (noteGroup[i] && noteGroup[i].length > 0) {
-                const note = noteGroup[i][0];
-                // Map the button row to the correct note in the staff
-                const staffNoteIndex = 7 - note.row;  // Invert the row index for staff notation
-                const keys = [notePair[staffNoteIndex]];
-                let duration = note.duration || "8";
-                let span = DURATION_TO_SPAN[duration];
-                // Prevent note from crossing measure boundary
-                if (i + span > endCol) {
-                    // If it would cross, reduce duration to fit
-                    if (endCol - i >= 4) {
-                        duration = 'h'; span = 4;
-                    } else if (endCol - i >= 2) {
-                        duration = 'q'; span = 2;
-                    } else {
-                        duration = '8'; span = 1;
-                    }
-                }
-                let staveNote = new VF.StaveNote({
-                    clef: "treble",
-                    keys: keys,
-                    duration: duration
-                });
-                measureNotes.push(staveNote);
-                i += span;
-            } else {
-                    // Add eighth rest for empty columns in non-empty measures
-                measureNotes.push(
-                    new VF.StaveNote({
-                        clef: "treble",
-                        keys: ["b/4"],
-                        duration: "8r"
-                    })
-                );
-                i++;
-                }
-            }
-        }
-
-        // Create and draw voice
-        let voice = new VF.Voice({
-            num_beats: beatsPerMeasure,
-            beat_value: 4
-        }).setStrict(false);
-        voice.addTickables(measureNotes);
-        new VF.Formatter()
-            .joinVoices([voice])
-            .format([voice], measureWidth - 20);
-        voice.draw(context, stave);
-
-        // Draw dynamic marking for first measure
-        if (currentDynamicMarking && m === 0) {
-            context.save();
-            context.setFont("Serif", 18, "bold");
-            context.setFillStyle("#222");
-            context.fillText(
-                currentDynamicMarking,
-                initialStave.getX() + 10,
-                initialStave.getBottomY() + 25
-            );
-            context.restore();
-        }
-        x += measureWidth;
+  // Process notes measure by measure
+  let x = clefAndTimeWidth + 10;
+  for (let m = 0; m < totalMeasures; m++) {
+    // Create stave for this measure
+    let stave = new VF.Stave(x, 20, measureWidth);
+    if (m === 0) {
+      stave.setBegBarType(VF.Barline.type.NONE);
     }
+    stave.setContext(context).draw();
+
+    // Get notes for this measure
+    let measureNotes = [];
+    const startCol = m * eighthsPerMeasure;
+    const endCol = Math.min(startCol + eighthsPerMeasure, totalColumns);
+
+    // Check if measure is empty
+    let isMeasureEmpty = true;
+    for (let i = startCol; i < endCol; i++) {
+      if (noteGroup[i] && noteGroup[i].length > 0) {
+        isMeasureEmpty = false;
+        break;
+      }
+    }
+
+    if (isMeasureEmpty) {
+      // Add appropriate rest based on time signature
+      const restDuration = currentTimeSignature === "3/4" ? "hr" : "wr";  // half rest for 3/4, whole rest for 4/4
+      measureNotes.push(
+        new VF.StaveNote({
+          clef: "treble",
+          keys: ["b/4"],
+          duration: restDuration
+        })
+      );
+    } else {
+      // Process notes in non-empty measure
+      for (let i = startCol; i < endCol;) {
+        if (noteGroup[i] && noteGroup[i].length > 0) {
+          const note = noteGroup[i][0];
+          // Map the button row to the correct note in the staff
+          const staffNoteIndex = 7 - note.row;  // Invert the row index for staff notation
+          const keys = [notePair[staffNoteIndex]];
+          let duration = note.duration || "8";
+          let span = DURATION_TO_SPAN[duration];
+          // Prevent note from crossing measure boundary
+          if (i + span > endCol) {
+            // If it would cross, reduce duration to fit
+            if (endCol - i >= 4) {
+              duration = 'h'; span = 4;
+            } else if (endCol - i >= 2) {
+              duration = 'q'; span = 2;
+            } else {
+              duration = '8'; span = 1;
+            }
+          }
+          let staveNote = new VF.StaveNote({
+            clef: "treble",
+            keys: keys,
+            duration: duration
+          });
+          measureNotes.push(staveNote);
+          i += span;
+        } else {
+          // Add eighth rest for empty columns in non-empty measures
+          measureNotes.push(
+            new VF.StaveNote({
+              clef: "treble",
+              keys: ["b/4"],
+              duration: "8r"
+            })
+          );
+          i++;
+        }
+      }
+    }
+
+    // Create and draw voice
+    let voice = new VF.Voice({
+      num_beats: beatsPerMeasure,
+      beat_value: 4
+    }).setStrict(false);
+    voice.addTickables(measureNotes);
+    new VF.Formatter()
+      .joinVoices([voice])
+      .format([voice], measureWidth - 20);
+    voice.draw(context, stave);
+
+    // Draw dynamic marking for first measure
+    if (currentDynamicMarking && m === 0) {
+      context.save();
+      context.setFont("Serif", 18, "bold");
+      context.setFillStyle("#222");
+      context.fillText(
+        currentDynamicMarking,
+        initialStave.getX() + 10,
+        initialStave.getBottomY() + 25
+      );
+      context.restore();
+    }
+    x += measureWidth;
+  }
 }
 
 function updateBarDividers() {
-    const buttons = document.querySelectorAll('.grid-btn');
-    const eighthsPerMeasure = currentTimeSignature === "3/4" ? 6 : 8;
+  const buttons = document.querySelectorAll('.grid-btn');
+  const eighthsPerMeasure = currentTimeSignature === "3/4" ? 6 : 8;
 
-    buttons.forEach(button => {
-        button.classList.remove('bar-divider');
-        const indexColumn = (parseInt(button.getAttribute('data-id')) - 1) % numColumns;
-        
-        // Add bar dividers based on time signature
-        if (indexColumn % eighthsPerMeasure === 0 && indexColumn !== 0 && indexColumn <= 8 * numColumns) {
-            button.classList.add('bar-divider');
-        }
-        
-        // Add last-bar-divider to the last column
-        if (indexColumn === numColumns - 1 && indexColumn <= 8 * numColumns) {
-            button.classList.add('last-bar-divider');
-        }
-    });
+  buttons.forEach(button => {
+    button.classList.remove('bar-divider');
+    const indexColumn = (parseInt(button.getAttribute('data-id')) - 1) % numColumns;
+
+    // Add bar dividers based on time signature
+    if (indexColumn % eighthsPerMeasure === 0 && indexColumn !== 0 && indexColumn <= 8 * numColumns) {
+      button.classList.add('bar-divider');
+    }
+
+    // Add last-bar-divider to the last column
+    if (indexColumn === numColumns - 1 && indexColumn <= 8 * numColumns) {
+      button.classList.add('last-bar-divider');
+    }
+  });
 }
 
 // Update reset button styles
@@ -1409,47 +1470,51 @@ document.addEventListener("keydown", (e) => {
 // Initialize reset functionality
 document.addEventListener("DOMContentLoaded", () => {
   const resetButton = document.getElementById("reset-button");
+
   if (resetButton) {
     resetButton.addEventListener("click", () => resetGrid());
     addResetContextMenu();
   }
 });
 
+
 // Update the mousemove event handler
 document.addEventListener("mousemove", (e) => {
-    if (!isDragging || !selectionStarted) return;
+  if (!isDragging || !selectionStarted) return;
 
-    const buttons = document.elementsFromPoint(e.clientX, e.clientY);
-    const targetButton = buttons.find((el) => 
-        el.classList.contains("grid-btn") && 
-        el.getAttribute("data-id") <= 8 * numColumns
-    );
+  const buttons = document.elementsFromPoint(e.clientX, e.clientY);
+  const targetButton = buttons.find((el) =>
+    el.classList.contains("grid-btn") &&
+    el.getAttribute("data-id") <= 8 * numColumns
+  );
 
-    if (targetButton && targetButton !== lastSelectedButton) {
-        if (!isResizing) {
-            lastSelectedButton = targetButton;
-            toggleButton(targetButton, initialButtonState);
-        } else if (
-            lastSelectedNote == 0 ||
-            lastSelectedNote == Math.floor(targetButton.getAttribute("data-id") / numColumns)
-        ) {
-            lastSelectedButton = targetButton;
-            lastSelectedNote = Math.floor(targetButton.getAttribute("data-id") / numColumns);
-            toggleButton(targetButton, initialButtonState);
-            targetButton.classList.add("connect");
-            targetButton.style.boxShadow = "none";
-        } else {
-            initVariables();
-        }
+  if (targetButton && targetButton !== lastSelectedButton) {
+    if (!isResizing) {
+      lastSelectedButton = targetButton;
+      toggleInsertSound(targetButton, initialButtonState);
+      // toggleButton(targetButton, initialButtonState);
+    } else if (
+      lastSelectedNote == 0 ||
+      lastSelectedNote == Math.floor(targetButton.getAttribute("data-id") / numColumns)
+    ) {
+      lastSelectedButton = targetButton;
+      lastSelectedNote = Math.floor(targetButton.getAttribute("data-id") / numColumns);
+      toggleInsertSound(targetButton, initialButtonState);
+      // toggleButton(targetButton, initialButtonState);
+      targetButton.classList.add("connect");
+      targetButton.style.boxShadow = "none";
+    } else {
+      initVariables();
     }
+  }
 });
 
 // Update the mouseup event handler
 document.addEventListener("mouseup", (e) => {
-    if (isDragging || isResizing) {
-        initVariables();
-        drawVex();
-    }
+  if (isDragging || isResizing) {
+    initVariables();
+    drawVex();
+  }
 });
 
 // change cursor on button boundry
@@ -1501,7 +1566,7 @@ function getMeasureInfo(column) {
 function getMeasureFilled(column) {
   const { measureStart, measureEnd } = getMeasureInfo(column);
   let filled = 0;
-  for (let i = measureStart; i < measureEnd; ) {
+  for (let i = measureStart; i < measureEnd;) {
     if (noteGroup[i] && noteGroup[i].length > 0) {
       const note = noteGroup[i][0];
       const span = DURATION_TO_SPAN[note.duration || '8'];
@@ -1539,116 +1604,214 @@ function showWarning(button, message) {
 
 // Modified toggleButton to support measure warning
 function toggleButton(button, forceState = null) {
-    const index = parseInt(button.getAttribute("data-id"));
-    let buttonRow = Math.floor((index - 1) / numColumns);  // Direct row calculation (0 = top)
-    let buttonColumn = (index - 1) % numColumns;
+  const index = parseInt(button.getAttribute("data-id"));
+  let buttonRow = Math.floor((index - 1) / numColumns);  // Direct row calculation (0 = top)
+  let buttonColumn = (index - 1) % numColumns;
 
-    // Show duration menu if adding a note
-    if (forceState !== false && (!button.classList.contains("selected") || forceState === true)) {
-        // Before showing duration menu, check if measure is full
-        const { measureStart, measureEnd, eighthsPerMeasure } = getMeasureInfo(buttonColumn);
-        const filled = getMeasureFilled(buttonColumn);
-        if (filled >= eighthsPerMeasure) {
-            showWarning(button, "This measure is full!");
-            return;
+  // Show duration menu if adding a note
+  if (forceState !== false && (!button.classList.contains("selected") || forceState === true)) {
+    // Before showing duration menu, check if measure is full
+    const { measureStart, measureEnd, eighthsPerMeasure } = getMeasureInfo(buttonColumn);
+    const filled = getMeasureFilled(buttonColumn);
+    if (filled >= eighthsPerMeasure) {
+      showWarning(button, "This measure is full!");
+      return;
+    }
+    // If not full, show duration menu
+    showDurationMenu(button, buttonRow, buttonColumn);
+    return;
+  }
+
+  // Remove note if already selected
+  if (button.classList.contains("selected")) {
+    button.classList.remove("selected");
+    button.classList.remove("connect");
+    button.style.backgroundColor = "";
+    // Only remove the specific note from this column
+    noteGroup[buttonColumn] = noteGroup[buttonColumn].filter(n => n.row !== buttonRow);
+    drawVex(); // Update the notation after removing the note
+  }
+}
+
+function toggleInsertSound(button, forceState = null) {
+  const index = parseInt(button.getAttribute("data-id"));
+  let buttonRow = Math.floor((index - 1) / numColumns);  // Direct row calculation (0 = top)
+  let buttonColumn = (index - 1) % numColumns;
+  // Show duration menu if adding a note
+  if (forceState !== false && (!button.classList.contains("selected") || forceState === true)) {
+    // Before showing duration menu, check if measure is full
+    const { measureStart, measureEnd, eighthsPerMeasure } = getMeasureInfo(buttonColumn);
+    const filled = getMeasureFilled(buttonColumn);
+    if (filled >= eighthsPerMeasure) {
+      showWarning(button, "This measure is full!");
+      return;
+    }
+
+    const previousNote = noteGroup[buttonColumn - 1].find(n => n.row === buttonRow);
+
+    if (previousNote) {
+      const index = noteGroup[buttonColumn - 1].findIndex(obj => obj.row === buttonRow);
+      switch (previousNote.duration) {
+        case '8':
+          console.log("asdasd >>>>>>>>", noteGroup[buttonColumn - 1]);
+          console.log(index);
+
+          noteGroup[buttonColumn - 1][index].duration = 'q';
+
+          for (let i = 0; i < DURATION_TO_SPAN['8']; i++) {
+            const btn = document.querySelector(`[data-id="${buttonColumn + 1 + i + buttonRow * numColumns}"]`);
+            if (btn) {
+              btn.classList.add('selected');
+              btn.style.backgroundColor = noteColor[buttonRow];
+              if (i > 0) btn.classList.add('connect');
+            }
+          }
+          break;
+        case 'q':
+          noteGroup[buttonColumn - 1][index].duration = 'h';
+          for (let i = 0; i < DURATION_TO_SPAN['8']; i++) {
+            const btn = document.querySelector(`[data-id="${buttonColumn + 1 + i + buttonRow * numColumns}"]`);
+            if (btn) {
+              btn.classList.add('selected');
+              btn.style.backgroundColor = noteColor[buttonRow];
+              if (i > 0) btn.classList.add('connect');
+            }
+          }
+          break;
+        case 'h':
+          noteGroup[buttonColumn - 1][index].duration = 'w';
+          for (let i = 0; i < DURATION_TO_SPAN['8']; i++) {
+            const btn = document.querySelector(`[data-id="${buttonColumn + 1 + i + buttonRow * numColumns}"]`);
+            if (btn) {
+              btn.classList.add('selected');
+              btn.style.backgroundColor = noteColor[buttonRow];
+              if (i > 0) btn.classList.add('connect');
+            }
+          }
+          break;
+        case 'w':
+          noteGroup[buttonColumn].push({ row: buttonRow, duration: 'q', start: true });
+          for (let i = 0; i < DURATION_TO_SPAN['q']; i++) {
+            const btn = document.querySelector(`[data-id="${buttonColumn + 1 + i + buttonRow * numColumns}"]`);
+            if (btn) {
+              btn.classList.add('selected');
+              btn.style.backgroundColor = noteColor[buttonRow];
+              if (i > 0) btn.classList.add('connect');
+            }
+          }
+          console.log("noteGroup[buttonColumn] >>>>>>", noteGroup);
+
+          for (let i = 0; i < DURATION_TO_SPAN['q']; i++) {
+            const btn = document.querySelector(`[data-id="${buttonColumn + 1 + i + buttonRow * numColumns}"]`);
+            if (btn) {
+              btn.classList.add('selected');
+              btn.style.backgroundColor = noteColor[buttonRow];
+              if (i > 0) btn.classList.add('connect');
+            }
+          }
+      }
+    } else {
+      noteGroup[buttonColumn].push({ row: buttonRow, duration: '8', start: true });
+      console.log("noteGroup[buttonColumn] >>>>>>", noteGroup);
+
+      for (let i = 0; i < DURATION_TO_SPAN['8']; i++) {
+        const btn = document.querySelector(`[data-id="${buttonColumn + 1 + i + buttonRow * numColumns}"]`);
+        if (btn) {
+          btn.classList.add('selected');
+          btn.style.backgroundColor = noteColor[buttonRow];
+          if (i > 0) btn.classList.add('connect');
         }
-        // If not full, show duration menu
-        showDurationMenu(button, buttonRow, buttonColumn);
-        return;
+      }
     }
+    // If not full, show duration menu
+    // showDurationMenu(button, buttonRow, buttonColumn);
 
-    // Remove note if already selected
-    if (button.classList.contains("selected")) {
-        button.classList.remove("selected");
-        button.classList.remove("connect");
-        button.style.backgroundColor = "";
-        // Only remove the specific note from this column
-        noteGroup[buttonColumn] = noteGroup[buttonColumn].filter(n => n.row !== buttonRow);
-        drawVex(); // Update the notation after removing the note
-    }
+    drawVex();
+    return;
+  }
 }
 
 // Update the showDurationMenu function to include chord options
 function showDurationMenu(button, buttonRow, buttonColumn) {
-    // Remove any existing menu
-    const oldMenu = document.getElementById('duration-menu');
-    if (oldMenu) oldMenu.remove();
+  // Remove any existing menu
+  const oldMenu = document.getElementById('duration-menu');
+  if (oldMenu) oldMenu.remove();
 
-    const menu = document.createElement('div');
-    menu.id = 'duration-menu';
-    menu.style.position = 'absolute';
-    menu.style.left = button.getBoundingClientRect().left + 'px';
-    menu.style.top = button.getBoundingClientRect().top + 'px';
-    menu.style.background = '#fff';
-    menu.style.border = '1px solid #ccc';
-    menu.style.zIndex = 10000;
-    menu.style.padding = '4px 8px';
-    menu.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
+  const menu = document.createElement('div');
+  menu.id = 'duration-menu';
+  menu.style.position = 'absolute';
+  menu.style.left = button.getBoundingClientRect().left + 'px';
+  menu.style.top = button.getBoundingClientRect().top + 'px';
+  menu.style.background = '#fff';
+  menu.style.border = '1px solid #ccc';
+  menu.style.zIndex = 10000;
+  menu.style.padding = '4px 8px';
+  menu.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
 
-    Object.entries(DURATION_LABELS).forEach(([dur, label]) => {
-        const { measureStart, measureEnd, eighthsPerMeasure } = getMeasureInfo(buttonColumn);
-        const filled = getMeasureFilled(buttonColumn);
-        const span = DURATION_TO_SPAN[dur];
-        const colInMeasure = buttonColumn - measureStart;
-        
-        // Check if note would cross measure boundary
-        if (colInMeasure + span > eighthsPerMeasure) {
-            const item = document.createElement('div');
-            item.textContent = label + ' (crosses measure)';
-            item.style.color = '#aaa';
-            item.style.cursor = 'not-allowed';
-            menu.appendChild(item);
-            return;
+  Object.entries(DURATION_LABELS).forEach(([dur, label]) => {
+    const { measureStart, measureEnd, eighthsPerMeasure } = getMeasureInfo(buttonColumn);
+    const filled = getMeasureFilled(buttonColumn);
+    const span = DURATION_TO_SPAN[dur];
+    const colInMeasure = buttonColumn - measureStart;
+
+    // Check if note would cross measure boundary
+    if (colInMeasure + span > eighthsPerMeasure) {
+      const item = document.createElement('div');
+      item.textContent = label + ' (crosses measure)';
+      item.style.color = '#aaa';
+      item.style.cursor = 'not-allowed';
+      menu.appendChild(item);
+      return;
+    }
+
+    // Check if measure is full
+    if (filled + span > eighthsPerMeasure) {
+      const item = document.createElement('div');
+      item.textContent = label + ' (measure full)';
+      item.style.color = '#aaa';
+      item.style.cursor = 'not-allowed';
+      menu.appendChild(item);
+      return;
+    }
+
+    // Otherwise, allow selection
+    const item = document.createElement('div');
+    item.textContent = label;
+    item.style.cursor = 'pointer';
+    item.style.padding = '2px 0';
+    item.onclick = () => {
+      if (canPlaceNote(buttonColumn, dur)) {
+        // Clear only the affected span
+        clearSpan(buttonColumn, dur);
+        // Add the new note
+        noteGroup[buttonColumn].push({ row: buttonRow, duration: dur, start: true });
+        // Update only the affected buttons
+        for (let i = 0; i < DURATION_TO_SPAN[dur]; i++) {
+          const btn = document.querySelector(`[data-id="${buttonColumn + 1 + i + buttonRow * numColumns}"]`);
+          if (btn) {
+            btn.classList.add('selected');
+            btn.style.backgroundColor = noteColor[buttonRow];
+            if (i > 0) btn.classList.add('connect');
+          }
         }
-        
-        // Check if measure is full
-        if (filled + span > eighthsPerMeasure) {
-            const item = document.createElement('div');
-            item.textContent = label + ' (measure full)';
-            item.style.color = '#aaa';
-            item.style.cursor = 'not-allowed';
-            menu.appendChild(item);
-            return;
-        }
-        
-        // Otherwise, allow selection
-        const item = document.createElement('div');
-        item.textContent = label;
-        item.style.cursor = 'pointer';
-        item.style.padding = '2px 0';
-        item.onclick = () => {
-            if (canPlaceNote(buttonColumn, dur)) {
-                // Clear only the affected span
-                clearSpan(buttonColumn, dur);
-                // Add the new note
-                noteGroup[buttonColumn].push({ row: buttonRow, duration: dur, start: true });
-                // Update only the affected buttons
-                for (let i = 0; i < DURATION_TO_SPAN[dur]; i++) {
-                    const btn = document.querySelector(`[data-id="${buttonColumn + 1 + i + buttonRow * numColumns}"]`);
-                    if (btn) {
-                        btn.classList.add('selected');
-                        btn.style.backgroundColor = noteColor[buttonRow];
-                        if (i > 0) btn.classList.add('connect');
-                    }
-                }
-                drawVex(); // Update the notation
-            }
-            menu.remove();
-        };
-        menu.appendChild(item);
+        drawVex(); // Update the notation
+      }
+      menu.remove();
+    };
+    menu.appendChild(item);
+  });
+
+  document.body.appendChild(menu);
+
+  // Close menu when clicking outside
+  setTimeout(() => {
+    document.addEventListener('mousedown', function handler(e) {
+      if (!menu.contains(e.target)) {
+        menu.remove();
+        document.removeEventListener('mousedown', handler);
+      }
     });
-
-    document.body.appendChild(menu);
-    
-    // Close menu when clicking outside
-    setTimeout(() => {
-        document.addEventListener('mousedown', function handler(e) {
-            if (!menu.contains(e.target)) {
-                menu.remove();
-                document.removeEventListener('mousedown', handler);
-            }
-        });
-    }, 10);
+  }, 10);
 }
 
 // Update or add the style for grid button borders and odd-group background, without !important so JS can override
@@ -1679,3 +1842,10 @@ circleBtnStyle.textContent = `
   }
 `;
 document.head.appendChild(circleBtnStyle);
+
+
+const timeSignatureSymbol = document.getElementsByClassName("vf-timesignature")[0].parentNode;
+timeSignatureSymbol.addEventListener("mousedown", () => {
+  console.log("ahggodhgoiahgehqwoeghoiqo>>>>>>");
+})
+console.log(timeSignatureSymbol);

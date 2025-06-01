@@ -1,6 +1,5 @@
-import { EventEmitter } from "https://esm.sh/events";
-import "../../../css/composite/chrome/bottom.scss";
-import { Transport } from "https://esm.sh/tone";
+import { EventEmitter } from "../events/events.js";
+import { Transport } from "../tone/build/esm/index.js";
 import { TempoSlider } from "./TempoSlider.js";
 import { InstrumentToggle } from "./InstrumentToggle.js";
 import { PitchModal } from "../modal/Pitch.js";

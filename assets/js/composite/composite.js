@@ -50,6 +50,22 @@ function updateTempoTerm(tempo) {
   }
 }
 
+function changeTimeSignature() { 
+  console.log("asofjaghiahdslgj");
+
+  if (songOptions.beats === 4) {
+    songOptions.beats = 3;
+    numColumns = 24;
+  } else if (songOptions.beats === 3) {
+    songOptions.beats = 4;
+    numColumns = 32;
+  }
+
+  initializeGrid();
+  updateBarDividers();
+  drawVex();
+};
+
 // Initialize grid
 function initializeGrid() {
   const gridContainer = document.getElementById("noteGroup");
@@ -239,3 +255,6 @@ Tone.Transport.scheduleRepeat((time) => {
 
 // Initialize the grid on page load
 initializeGrid();
+document.addEventListener("DOMContentLoaded", () => {
+  console.log("alihgoliaehgoihaoiu");
+});

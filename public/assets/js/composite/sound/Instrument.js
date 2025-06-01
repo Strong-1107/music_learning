@@ -26,8 +26,11 @@ export class Instrument {
     this.currentInstrument = null;
 
     this.options.on("change-instrument", () => {
+      console.log("Instrument Changed!!! >>>>", this.options);
+      
       this.setInstrument();
     });
+
     this.setInstrument();
   }
 
