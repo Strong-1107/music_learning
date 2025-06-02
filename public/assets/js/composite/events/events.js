@@ -50,7 +50,7 @@ var NumberIsNaN = Number.isNaN || function NumberIsNaN(value) {
   return value !== value;
 }
 
-export function EventEmitter() {
+export default function EventEmitter() {
   EventEmitter.init.call(this);
 }
  // module.exports = EventEmitter;
