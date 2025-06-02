@@ -1,5 +1,5 @@
 // import { EventEmitter } from "https://esm.sh/events";
-import { EventEmitter } from "../../events/events.js";
+import { EventEmitter } from "../events/events.js";
 import { nameToScale } from "./ScaleMap.js";
 
 export const MOBILE_BREAKPOINT = 1024;
